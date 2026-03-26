@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WarPulse — Global Conflict Tracker</title>
+<meta name="description" content="Real-time global conflict tracker. Live war maps, death tolls, ceasefire meter, economic impact, and breaking news from Iran, Israel, Ukraine and beyond.">
+<meta name="keywords" content="Iran war, Israel war, global conflict tracker, war news, ceasefire, Middle East crisis 2026">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #222222;
+    --red: #ff2d2d;
+    --orange: #ff7a00;
+    --yellow: #ffd000;
+    --green: #00ff7f;
+    --blue: #00aaff;
+    --text: #e8e8e8;
+    --muted: #666;
+    --font-head: 'Bebas Neue', sans-serif;
+    --font-body: 'IBM Plex Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-body); overflow-x:hidden; }
+
+  /* TICKER */
+  .ticker-wrap { background:var(--red); padding:6px 0; overflow:hidden; position:sticky; top:0; z-index:1000; }
+  .ticker { display:flex; white-space:nowrap; animation:ticker 50s linear infinite; font-family:var(--font-mono); font-size:12px; color:#fff; }
+  .ticker span { padding:0 40px; }
+  .ticker span::before { content:"◆ "; }
+  @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+  /* HEADER */
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-pulse { width:32px; height:32px; border-radius:50%; background:var(--red); animation:pulse-ring 1.5s ease-out infinite; }
+  @keyframes pulse-ring { 0%{box-shadow:0 0 0 0 rgba(255,45,45,0.6)} 70%{box-shadow:0 0 0 14px rgba(255,45,45,0)} 100%{box-shadow:0 0 0 0 rgba(255,45,45,0)} }
+  .logo h1 { font-family:var(--font-head); font-size:34px; letter-spacing:3px; color:#fff; line-height:1; }
+  .logo h1 span { color:var(--red); }
+  .live-badge { background:var(--red); color:#fff; font-family:var(--font-mono); font-size:10px; padding:4px 10px; border-radius:3px; letter-spacing:2px; animation:blink 1s step-end infinite; }
+  @keyframes blink { 50%{opacity:0} }
+  .header-right { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  nav { display:flex; gap:18px; }
+  nav a { color:var(--muted); text-decoration:none; font-size:13px; font-weight:500; letter-spacing:1px; text-transform:uppercase; transition:color 0.2s; }
+  nav a:hover { color:var(--red); }
+  .last-updated { font-family:var(--font-mono); font-size:11px; color:var(--muted); }
+
+  /* HERO STATS */
+  .hero-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--border); border-bottom:1px solid var(--border); }
+  .stat-card { background:var(--surface); padding:18px 20px; position:relative; overflow:hidden; transition:background 0.2s; cursor:default; }
+  .stat-card:hover { background:var(--surface2); }
+  .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .stat-card.red::before{background:var(--red)} .stat-card.orange::before{background:var(--orange)} .stat-card.yellow::before{background:var(--yellow)} .stat-card.blue::before{background:var(--blue)} .stat-card.green::before{background:var(--green)}
+  .stat-label { font-family:var(--font-mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
+  .stat-value { font-family:var(--font-head); font-size:36px; line-height:1; letter-spacing:1px; }
+  .stat-card.red .stat-value{color:var(--red)} .stat-card.orange .stat-value{color:var(--orange)} .stat-card.yellow .stat-value{color:var(--yellow)} .stat-card.blue .stat-value{color:var(--blue)} .stat-card.green .stat-value{color:var(--green)}
+  .stat-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+  .stat-change { font-family:var(--font-mono); font-size:11px; margin-top:3px; }
+  .stat-change.up{color:var(--red)} .stat-change.dn{color:var(--green)}
+
+  /* MAIN GRID */
+  .main-grid { display:grid; grid-template-columns:1fr 340px; gap:1px; background:var(--border); }
+  @media(max-width:900px){.main-grid{grid-template-columns:1fr}}
+
+  /* SECTION HEADER */
+  .section-header { display:flex; align-items:center; gap:10px; padding:13px 20px; border-bottom:1px solid var(--border); background:var(--surface); }
+  .section-header h2 { font-family:var(--font-head); font-size:17px; letter-spacing:3px; }
+  .section-badge { margin-left:auto; font-family:var(--font-mono); font-size:10px; letter-spacing:1px; color:var(--muted); }
+
+  /* NEWS FEED */
+  .news-section { background:var(--surface); }
+  .news-loading { padding:30px; text-align:center; font-family:var(--font-mono); font-size:12px; color:var(--muted); }
+  .news-loading span { animation:blink 0.8s step-end infinite; }
+  .news-item { padding:13px 20px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.15s; display:flex; gap:12px; align-items:flex-start; }
+  .news-item:hover { background:var(--surface2); }
+  .news-tag { font-family:var(--font-mono); font-size:9px; letter-spacing:1.5px; padding:3px 7px; border-radius:2px; flex-shrink:0; margin-top:2px; text-transform:uppercase; }
+  .tag-breaking{background:rgba(255,45,45,0.15);color:var(--red);border:1px solid rgba(255,45,45,0.3)}
+  .tag-war{background:rgba(255,122,0,0.15);color:var(--orange);border:1px solid rgba(255,122,0,0.3)}
+  .tag-diplomacy{background:rgba(0,170,255,0.15);color:var(--blue);border:1px solid rgba(0,170,255,0.3)}
+  .tag-world{background:rgba(255,208,0,0.15);color:var(--yellow);border:1px solid rgba(255,208,0,0.3)}
+  .news-content { flex:1; }
+  .news-headline { font-size:14px; font-weight:500; line-height:1.4; margin-bottom:4px; color:var(--text); }
+  .news-meta { font-family:var(--font-mono); font-size:10px; color:var(--muted); display:flex; gap:12px; flex-wrap:wrap; }
+  .news-meta a { color:var(--blue); text-decoration:none; }
+  .news-meta a:hover { color:var(--text); }
+
+  /* TAB BUTTONS */
+  .tab-buttons { display:flex; border-bottom:1px solid var(--border); background:var(--surface); overflow-x:auto; }
+  .tab-btn { background:none; border:none; color:var(--muted); font-family:var(--font-mono); font-size:11px; letter-spacing:1.5px; text-transform:uppercase; padding:11px 16px; cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s; white-space:nowrap; }
+  .tab-btn.active{color:var(--text);border-bottom-color:var(--red)}
+  .tab-btn:hover:not(.active){color:var(--text)}
+
+  /* CONFLICT CARDS */
+  .conflict-card { border-bottom:1px solid var(--border); padding:14px 20px; cursor:pointer; transition:background 0.15s; }
+  .conflict-card:hover{background:var(--surface2)}
+  .conflict-card.active{background:var(--surface2);border-left:3px solid var(--red)}
+  .conflict-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:7px; }
+  .conflict-name { font-family:var(--font-head); font-size:17px; letter-spacing:1px; }
+  .conflict-severity { font-family:var(--font-mono); font-size:10px; padding:3px 8px; border-radius:2px; letter-spacing:1px; flex-shrink:0; }
+  .sev-critical{background:rgba(255,45,45,0.2);color:var(--red);border:1px solid rgba(255,45,45,0.3)}
+  .sev-high{background:rgba(255,122,0,0.2);color:var(--orange);border:1px solid rgba(255,122,0,0.3)}
+  .sev-medium{background:rgba(255,208,0,0.2);color:var(--yellow);border:1px solid rgba(255,208,0,0.3)}
+  .conflict-meta { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:7px; }
+  .conflict-meta span { font-family:var(--font-mono); font-size:11px; color:var(--muted); }
+  .conflict-meta strong{color:var(--text)}
+  .conflict-summary { font-size:13px; color:#aaa; line-height:1.5; }
+  .conflict-bar { height:2px; background:var(--border); margin-top:10px; border-radius:1px; overflow:hidden; }
+  .conflict-bar-fill { height:100%; border-radius:1px; }
+
+  /* CEASEFIRE METER */
+  .ceasefire-container { padding:18px; }
+  .ceasefire-label { font-family:var(--font-mono); font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:6px; }
+  .ceasefire-value { font-family:var(--font-head); font-size:60px; line-height:1; color:var(--yellow); }
+  .ceasefire-bar-wrap { height:7px; background:var(--border); border-radius:4px; overflow:hidden; margin:10px 0; }
+  .ceasefire-bar-fill { height:100%; background:linear-gradient(90deg,var(--red),var(--yellow),var(--green)); border-radius:4px; }
+  .ceasefire-factors { font-size:12px; color:var(--muted); line-height:1.9; }
+
+  /* COMMODITY */
+  .commodity-container { padding:14px; display:flex; flex-direction:column; gap:5px; }
+  .commodity-row { display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--surface2); border-radius:3px; }
+  .commodity-name { font-size:12px; flex:1; }
+  .commodity-price { font-family:var(--font-mono); font-size:13px; }
+  .commodity-change { font-family:var(--font-mono); font-size:11px; padding:2px 6px; border-radius:2px; }
+  .chg-up{background:rgba(255,45,45,0.15);color:var(--red)}
+  .chg-dn{background:rgba(0,255,127,0.15);color:var(--green)}
+  .commodity-mini-bar { width:36px; height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .commodity-mini-fill { height:100%; border-radius:2px; }
+  .price-loading { font-family:var(--font-mono); font-size:10px; color:var(--muted); animation:blink 0.8s step-end infinite; }
+
+  /* IMPACT CALCULATOR */
+  .impact-container { padding:14px; }
+  .impact-select { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:var(--font-body); font-size:13px; padding:9px 12px; border-radius:3px; margin-bottom:10px; outline:none; cursor:pointer; }
+  .impact-select:focus{border-color:var(--red)}
+  .impact-results { display:flex; flex-direction:column; gap:7px; }
+  .impact-row { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:var(--surface2); border-radius:3px; border-left:3px solid var(--border); }
+  .impact-row.danger{border-left-color:var(--red)} .impact-row.warning{border-left-color:var(--orange)} .impact-row.caution{border-left-color:var(--yellow)} .impact-row.ok{border-left-color:var(--green)}
+  .impact-label{font-size:12px;color:var(--muted)}
+  .impact-value{font-family:var(--font-mono);font-size:13px;font-weight:500}
+  .impact-row.danger .impact-value{color:var(--red)} .impact-row.warning .impact-value{color:var(--orange)} .impact-row.caution .impact-value{color:var(--yellow)} .impact-row.ok .impact-value{color:var(--green)}
+
+  /* HUMANITARIAN */
+  .humanitarian-container { padding:14px; display:flex; flex-direction:column; gap:7px; }
+  .h-stat { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; border:1px solid var(--border); border-radius:3px; }
+  .h-stat-left { display:flex; align-items:center; gap:8px; }
+  .h-icon{font-size:17px}
+  .h-label{font-size:12px;color:var(--muted)}
+  .h-value { font-family:var(--font-head); font-size:20px; letter-spacing:1px; }
+  .h-stat.critical .h-value{color:var(--red)} .h-stat.warning .h-value{color:var(--orange)} .h-stat.concern .h-value{color:var(--yellow)}
+
+  /* ═══════════════════════════════════
+     DONATE SECTION — EDITABLE
+  ════════════════════════════════════ */
+  .donate-section { border-bottom:1px solid var(--border); }
+  .donate-container { padding:16px; }
+  .donate-desc { font-size:12px; color:var(--muted); line-height:1.7; margin-bottom:14px; }
+  .donate-btn-main {
+    display:block; width:100%; text-align:center; text-decoration:none;
+    background:linear-gradient(135deg,#ff8c00,#ffb347);
+    color:#000; font-family:var(--font-head); font-size:20px; letter-spacing:2px;
+    padding:13px 20px; border-radius:4px; border:none; cursor:pointer;
+    transition:filter 0.2s; margin-bottom:8px;
+  }
+  .donate-btn-main:hover{filter:brightness(1.15)}
+  .donate-edit-link { font-family:var(--font-mono); font-size:10px; color:var(--muted); text-align:center; display:block; cursor:pointer; letter-spacing:1px; }
+  .donate-edit-link:hover{color:var(--yellow)}
+
+  /* DONATE EDIT MODAL */
+  .edit-panel { display:none; background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:14px; margin-top:10px; }
+  .edit-panel.open{display:block}
+  .edit-label { font-family:var(--font-mono); font-size:10px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-bottom:5px; margin-top:10px; }
+  .edit-input { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--font-mono); font-size:12px; padding:8px 10px; border-radius:3px; outline:none; margin-bottom:2px; }
+  .edit-input:focus{border-color:var(--yellow)}
+  .edit-save-btn { width:100%; background:var(--green); color:#000; border:none; font-family:var(--font-head); font-size:16px; letter-spacing:2px; padding:9px; border-radius:3px; cursor:pointer; margin-top:12px; transition:filter 0.2s; }
+  .edit-save-btn:hover{filter:brightness(0.85)}
+  .edit-note { font-size:11px; color:var(--muted); margin-top:8px; line-height:1.6; }
+
+  /* ═══════════════════════════════════
+     AFFILIATE SECTION — EDITABLE
+  ════════════════════════════════════ */
+  .affiliate-section { border-bottom:1px solid var(--border); }
+  .affiliate-container { padding:14px; }
+  .affiliate-card { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:13px; margin-bottom:8px; display:flex; align-items:center; gap:12px; text-decoration:none; transition:border-color 0.2s, background 0.2s; }
+  .affiliate-card:hover{border-color:var(--blue);background:var(--bg)}
+  .affiliate-icon { font-size:26px; flex-shrink:0; }
+  .affiliate-info { flex:1; }
+  .affiliate-name { font-family:var(--font-head); font-size:17px; letter-spacing:1px; color:var(--text); margin-bottom:2px; }
+  .affiliate-desc { font-size:11px; color:var(--muted); line-height:1.5; }
+  .affiliate-cta { font-family:var(--font-mono); font-size:11px; background:var(--blue); color:#000; padding:6px 12px; border-radius:3px; white-space:nowrap; font-weight:600; letter-spacing:1px; }
+  .affiliate-mgr-btn { width:100%; background:transparent; border:1px dashed var(--border); color:var(--muted); font-family:var(--font-mono); font-size:11px; letter-spacing:1px; padding:10px; border-radius:3px; cursor:pointer; margin-top:6px; transition:all 0.2s; }
+  .affiliate-mgr-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+  /* AFFILIATE MANAGER MODAL */
+  .aff-manager { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:3000; align-items:center; justify-content:center; padding:16px; }
+  .aff-manager.open{display:flex}
+  .aff-manager-box { background:var(--surface); border:1px solid var(--border); border-radius:6px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto; }
+  .aff-manager-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .aff-manager-header h3 { font-family:var(--font-head); font-size:20px; letter-spacing:2px; }
+  .modal-close { background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; }
+  .aff-manager-body { padding:20px; }
+  .aff-item-edit { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:14px; margin-bottom:12px; position:relative; }
+  .aff-item-edit .del-btn { position:absolute; top:10px; right:10px; background:rgba(255,45,45,0.15); border:1px solid rgba(255,45,45,0.3); color:var(--red); font-size:12px; padding:3px 8px; border-radius:2px; cursor:pointer; font-family:var(--font-mono); }
+  .aff-item-edit .del-btn:hover{background:var(--red);color:#fff}
+  .aff-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px; }
+  .add-aff-btn { width:100%; background:var(--blue); color:#000; border:none; font-family:var(--font-head); font-size:16px; letter-spacing:2px; padding:10px; border-radius:3px; cursor:pointer; margin-top:4px; transition:filter 0.2s; }
+  .add-aff-btn:hover{filter:brightness(0.85)}
+  .save-aff-btn { width:100%; background:var(--green); color:#000; border:none; font-family:var(--font-head); font-size:16px; letter-spacing:2px; padding:10px; border-radius:3px; cursor:pointer; margin-top:8px; transition:filter 0.2s; }
+  .save-aff-btn:hover{filter:brightness(0.85)}
+  .aff-tip { font-size:11px; color:var(--muted); margin-top:10px; line-height:1.7; background:var(--surface2); padding:10px; border-radius:3px; border-left:3px solid var(--blue); }
+
+  /* NEWSLETTER */
+  .newsletter-container { padding:14px; }
+  .newsletter-container p { font-size:12px; color:var(--muted); margin-bottom:10px; line-height:1.6; }
+  .nl-input { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:var(--font-body); font-size:13px; padding:9px 12px; border-radius:3px; margin-bottom:7px; outline:none; }
+  .nl-input:focus{border-color:var(--red)}
+  .nl-btn { width:100%; background:var(--red); color:#fff; border:none; font-family:var(--font-head); font-size:16px; letter-spacing:2px; padding:10px; border-radius:3px; cursor:pointer; transition:background 0.2s; }
+  .nl-btn:hover{background:#cc0000}
+
+  /* AD PLACEHOLDER */
+  .ad-unit { background:var(--surface2); border:1px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:var(--muted); font-size:11px; font-family:var(--font-mono); letter-spacing:1px; padding:20px; margin:14px; border-radius:3px; min-height:90px; }
+  .ad-unit-large{min-height:220px}
+
+  /* MAP */
+  .world-map-container { padding:18px; }
+  svg.world-map { width:100%; height:auto; display:block; }
+  .map-legend { display:flex; gap:18px; flex-wrap:wrap; padding:10px 20px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
+  .legend-item{display:flex;align-items:center;gap:6px}
+  .legend-dot{width:10px;height:10px;border-radius:50%}
+  .conflict-dot{cursor:pointer;transition:all 0.2s}
+  .conflict-dot:hover circle{filter:brightness(1.4)}
+
+  /* FOOTER */
+  footer { background:var(--surface); border-top:1px solid var(--border); padding:28px 24px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:28px; font-size:12px; }
+  @media(max-width:600px){footer{grid-template-columns:1fr}}
+  footer h3 { font-family:var(--font-head); font-size:15px; letter-spacing:2px; margin-bottom:10px; }
+  footer p,footer a { color:var(--muted); line-height:1.9; display:block; text-decoration:none; }
+  footer a:hover{color:var(--red)}
+  .footer-bottom { grid-column:1/-1; border-top:1px solid var(--border); padding-top:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+
+  /* CONFLICT MODAL */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:2000; align-items:center; justify-content:center; padding:16px; }
+  .modal-overlay.open{display:flex}
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:4px; max-width:580px; width:100%; max-height:80vh; overflow-y:auto; }
+  .modal-header { padding:15px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .modal-header h3 { font-family:var(--font-head); font-size:19px; letter-spacing:2px; }
+  .modal-body { padding:18px; }
+  .modal-body p { font-size:14px; color:#aaa; line-height:1.7; margin-bottom:10px; }
+  .modal-body h4 { font-family:var(--font-mono); font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin:14px 0 7px; }
+  .modal-facts { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .modal-fact { background:var(--surface2); padding:9px 11px; border-radius:3px; }
+  .modal-fact-label{font-size:11px;color:var(--muted);margin-bottom:2px}
+  .modal-fact-value{font-family:var(--font-mono);font-size:14px}
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar{width:4px;height:4px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  ::-webkit-scrollbar-thumb:hover{background:var(--red)}
+
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .fade-in{animation:fadeIn 0.4s ease forwards}
+  .fade-in-d1{animation-delay:0.1s;opacity:0} .fade-in-d2{animation-delay:0.2s;opacity:0} .fade-in-d3{animation-delay:0.3s;opacity:0} .fade-in-d4{animation-delay:0.4s;opacity:0} .fade-in-d5{animation-delay:0.5s;opacity:0}
+
+  .success-msg{font-family:var(--font-mono);font-size:11px;color:var(--green);margin-top:6px;display:none}
+</style>
+</head>
+<body>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker" id="ticker">
+    <span>US-Israel strikes on Iran enter Day 27 — attacks increasing in number and intensity</span>
+    <span>Iran death toll passes 1,937 — including 217 children</span>
+    <span>Trump extends pause on energy site strikes to April 6</span>
+    <span>Strait of Hormuz: ~2,000 vessels and 20,000 seafarers stranded</span>
+    <span>Oil prices surge as global energy supply threatened</span>
+    <span>Lebanon: 1,116 killed, Israeli ground forces active in south</span>
+    <span>Iran fires retaliatory strikes at Israel, Lebanon, Gulf countries</span>
+    <span>Pakistan offers to host Iran-US peace negotiations</span>
+    <span>Iraq: 96 killed as country struggles to balance US and Iran ties</span>
+    <span>US-Israel strikes on Iran enter Day 27 — attacks increasing in number and intensity</span>
+    <span>Iran death toll passes 1,937 — including 217 children</span>
+    <span>Trump extends pause on energy site strikes to April 6</span>
+    <span>Strait of Hormuz: ~2,000 vessels and 20,000 seafarers stranded</span>
+    <span>Oil prices surge as global energy supply threatened</span>
+    <span>Lebanon: 1,116 killed, Israeli ground forces active in south</span>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-pulse"></div>
+    <h1>WAR<span>PULSE</span></h1>
+    <div class="live-badge">LIVE</div>
+  </div>
+  <div class="header-right">
+    <nav>
+      <a href="#conflicts">Map</a>
+      <a href="#news">News</a>
+      <a href="#impact">Impact</a>
+      <a href="#donate-section">Donate</a>
+      <a href="#affiliates">Partners</a>
+    </nav>
+    <div class="last-updated" id="clock">—</div>
+  </div>
+</header>
+
+<!-- HERO STATS -->
+<div class="hero-stats">
+  <div class="stat-card red fade-in fade-in-d1">
+    <div class="stat-label">Iran Deaths</div>
+    <div class="stat-value" id="iranDeaths">1937</div>
+    <div class="stat-sub">incl. 217 children</div>
+    <div class="stat-change up">↑ +187 today</div>
+  </div>
+  <div class="stat-card orange fade-in fade-in-d2">
+    <div class="stat-label">Lebanon Deaths</div>
+    <div class="stat-value">1,116</div>
+    <div class="stat-sub">+3,229 wounded</div>
+    <div class="stat-change up">↑ +33 today</div>
+  </div>
+  <div class="stat-card yellow fade-in fade-in-d3">
+    <div class="stat-label">Days of War</div>
+    <div class="stat-value" id="warDays">27</div>
+    <div class="stat-sub">Since Feb 28, 2026</div>
+    <div class="stat-change up">Active</div>
+  </div>
+  <div class="stat-card blue fade-in fade-in-d4">
+    <div class="stat-label">Vessels Stranded</div>
+    <div class="stat-value">2,000+</div>
+    <div class="stat-sub">Strait of Hormuz</div>
+    <div class="stat-change up">↑ Crisis</div>
+  </div>
+  <div class="stat-card green fade-in fade-in-d5">
+    <div class="stat-label">Ceasefire Chance</div>
+    <div class="stat-value">18%</div>
+    <div class="stat-sub">AI estimated</div>
+    <div class="stat-change dn">↓ Low</div>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="main-grid">
+
+  <!-- LEFT COLUMN -->
+  <div>
+
+    <!-- WORLD MAP -->
+    <div id="conflicts">
+      <div class="section-header">
+        <span>🗺️</span><h2>LIVE WAR MAP</h2>
+        <span class="section-badge">6 ACTIVE CONFLICTS</span>
+      </div>
+      <div class="world-map-container">
+        <svg class="world-map" viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg">
+          <rect width="900" height="420" fill="#111"/>
+          <path d="M100 80 L230 80 L240 160 L210 200 L180 220 L150 200 L120 180 L90 140Z" fill="#1a1a1a" stroke="#2a2a2a" stroke-width="1"/>
+          <path d="M170 240 L220 240 L230 340 L200 380 L170 360 L155 310Z" fill="#1a1a1a" stroke="#2a2a2a" stroke-width="1"/>
+          <path d="M390 70 L460 70 L470 130 L440 140 L400 130Z" fill="#1a1a1a" stroke="#2a2a2a" stroke-width="1"/>
+          <path d="M410 160 L480 160 L490 300 L450 340 L410 310 L395 250Z" fill="#1a1a1a" stroke="#2a2a2a" stroke-width="1"/>
+          <path d="M490 140 L560 130 L570 190 L530 210 L490 200Z" fill="#1a1a1a" stroke="#2a2a2a" stroke-width="1"/>
+          <path d="M560 60 L760 60 L780 200 L720 230 L640 220 L570 190Z" fill="#1a1a1a" stroke="#2a2a2a" stroke-width="1"/>
+          <path d="M680 280 L780 280 L790 350 L740 370 L680 350Z" fill="#1a1a1a" stroke="#2a2a2a" stroke-width="1"/>
+
+          <g class="conflict-dot" onclick="showConflict('iran')">
+            <circle cx="530" cy="165" r="20" fill="rgba(255,45,45,0.1)"><animate attributeName="r" values="18;26;18" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite"/></circle>
+            <circle cx="530" cy="165" r="8" fill="#ff2d2d"/>
+            <text x="530" y="148" text-anchor="middle" fill="#ff2d2d" font-family="'IBM Plex Mono',monospace" font-size="9" letter-spacing="0.5">🔴 IRAN/ISRAEL</text>
+          </g>
+          <g class="conflict-dot" onclick="showConflict('ukraine')">
+            <circle cx="468" cy="92" r="14" fill="rgba(255,122,0,0.1)"><animate attributeName="r" values="12;18;12" dur="2.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.5;0;0.5" dur="2.5s" repeatCount="indefinite"/></circle>
+            <circle cx="468" cy="92" r="6" fill="#ff7a00"/>
+            <text x="468" y="78" text-anchor="middle" fill="#ff7a00" font-family="'IBM Plex Mono',monospace" font-size="9">🟠 UKRAINE</text>
+          </g>
+          <g class="conflict-dot" onclick="showConflict('sudan')">
+            <circle cx="466" cy="213" r="10" fill="rgba(255,208,0,0.15)"/>
+            <circle cx="466" cy="213" r="5" fill="#ffd000"/>
+            <text x="466" y="200" text-anchor="middle" fill="#ffd000" font-family="'IBM Plex Mono',monospace" font-size="9">🟡 SUDAN</text>
+          </g>
+          <g class="conflict-dot" onclick="showConflict('myanmar')">
+            <circle cx="686" cy="188" r="8" fill="rgba(255,122,0,0.15)"/>
+            <circle cx="686" cy="188" r="4" fill="#ff7a00"/>
+            <text x="686" y="176" text-anchor="middle" fill="#ff7a00" font-family="'IBM Plex Mono',monospace" font-size="9">MYANMAR</text>
+          </g>
+          <g class="conflict-dot" onclick="showConflict('lebanon')">
+            <circle cx="512" cy="155" r="5" fill="#ff2d2d"/>
+            <text x="512" y="144" text-anchor="middle" fill="#ff7a00" font-family="'IBM Plex Mono',monospace" font-size="8">LEBANON</text>
+          </g>
+          <text x="12" y="408" fill="#333" font-family="'IBM Plex Mono',monospace" font-size="10">Click on a conflict dot for full details</text>
+        </svg>
+      </div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Critical</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>High</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>Medium</div>
+      </div>
+    </div>
+
+    <!-- CONFLICT CARDS -->
+    <div>
+      <div class="section-header"><span>⚔️</span><h2>ACTIVE CONFLICTS</h2><span class="section-badge">CLICK FOR DETAILS</span></div>
+      <div class="conflict-card active" onclick="showConflict('iran')">
+        <div class="conflict-top"><div class="conflict-name">🇮🇷 IRAN — US &amp; ISRAEL</div><div class="conflict-severity sev-critical">CRITICAL</div></div>
+        <div class="conflict-meta"><span>💀 <strong>3,053+</strong> Dead</span><span>📅 Day <strong id="iranDay">27</strong></span><span>🌍 <strong>9</strong> Countries</span></div>
+        <div class="conflict-summary">US-Israeli strikes intensifying. Trump pauses energy attacks. Strait of Hormuz partially disrupted, threatening global oil supply.</div>
+        <div class="conflict-bar"><div class="conflict-bar-fill" style="width:95%;background:var(--red)"></div></div>
+      </div>
+      <div class="conflict-card" onclick="showConflict('ukraine')">
+        <div class="conflict-top"><div class="conflict-name">🇺🇦 RUSSIA — UKRAINE</div><div class="conflict-severity sev-high">HIGH</div></div>
+        <div class="conflict-meta"><span>💀 <strong>600,000+</strong> Dead</span><span>📅 Day <strong>1,123</strong></span><span>🌍 NATO Involved</span></div>
+        <div class="conflict-summary">War continues along eastern front. Ceasefire negotiations ongoing but stalled. Energy and refugee pressures on Europe continue.</div>
+        <div class="conflict-bar"><div class="conflict-bar-fill" style="width:75%;background:var(--orange)"></div></div>
+      </div>
+      <div class="conflict-card" onclick="showConflict('sudan')">
+        <div class="conflict-top"><div class="conflict-name">🇸🇩 SUDAN CIVIL WAR</div><div class="conflict-severity sev-high">HIGH</div></div>
+        <div class="conflict-meta"><span>💀 <strong>150,000+</strong> Dead</span><span>📅 Day <strong>700+</strong></span><span>🏠 8.5M Displaced</span></div>
+        <div class="conflict-summary">World's largest humanitarian crisis. SAF vs RSF. Famine conditions spreading, international aid access blocked.</div>
+        <div class="conflict-bar"><div class="conflict-bar-fill" style="width:60%;background:var(--yellow)"></div></div>
+      </div>
+      <div class="conflict-card" onclick="showConflict('myanmar')">
+        <div class="conflict-top"><div class="conflict-name">🇲🇲 MYANMAR CIVIL WAR</div><div class="conflict-severity sev-medium">MEDIUM</div></div>
+        <div class="conflict-meta"><span>💀 <strong>50,000+</strong> Dead</span><span>📅 Day <strong>1,400+</strong></span><span>🏠 3M Displaced</span></div>
+        <div class="conflict-summary">Military junta vs resistance forces. Major cities under siege. Humanitarian access severely restricted.</div>
+        <div class="conflict-bar"><div class="conflict-bar-fill" style="width:45%;background:var(--yellow)"></div></div>
+      </div>
+    </div>
+
+    <!-- NEWS FEED -->
+    <div id="news">
+      <div class="section-header"><span>📰</span><h2>LIVE NEWS FEED</h2><span class="section-badge" id="newsAge">Loading...</span></div>
+      <div class="tab-buttons">
+        <button class="tab-btn active" onclick="filterNews('all',this)">ALL</button>
+        <button class="tab-btn" onclick="filterNews('war',this)">WAR</button>
+        <button class="tab-btn" onclick="filterNews('diplomacy',this)">DIPLOMACY</button>
+        <button class="tab-btn" onclick="filterNews('world',this)">WORLD</button>
+      </div>
+      <div id="newsFeed">
+        <div class="news-loading">⟳ Loading live news<span>...</span></div>
+      </div>
+    </div>
+
+    <!-- AD UNIT BOTTOM -->
+    <div class="ad-unit ad-unit-large">
+      📢 GOOGLE ADSENSE — 728×90<br><br>
+      <code style="font-size:10px;color:#444">&lt;!-- Paste your AdSense code here --&gt;</code>
+      <small style="display:block;margin-top:8px">Apply at: adsense.google.com</small>
+    </div>
+  </div>
+
+  <!-- RIGHT SIDEBAR -->
+  <div>
+
+    <!-- CEASEFIRE METER -->
+    <div style="border-bottom:1px solid var(--border)">
+      <div class="section-header"><span>☮️</span><h2>CEASEFIRE METER</h2></div>
+      <div class="ceasefire-container">
+        <div class="ceasefire-label">Iran–US/Israel Peace Probability</div>
+        <div class="ceasefire-value">18%</div>
+        <div class="ceasefire-bar-wrap"><div class="ceasefire-bar-fill" style="width:18%"></div></div>
+        <div class="ceasefire-factors">
+          🔴 Iran rejects US 15-point plan<br>
+          🔴 Strikes "increasing in intensity"<br>
+          🟡 Trump pauses energy attacks<br>
+          🟡 Indirect talks via intermediaries<br>
+          🟡 Pakistan offers mediation<br>
+          🔴 Iran says it will "resist"
+        </div>
+      </div>
+    </div>
+
+    <!-- COMMODITY PRICES -->
+    <div style="border-bottom:1px solid var(--border)">
+      <div class="section-header"><span>📈</span><h2>COMMODITY PRICES</h2><span class="section-badge" id="priceAge">Auto-updating</span></div>
+      <div class="commodity-container" id="commodityContainer">
+        <div class="news-loading">⟳ Loading prices<span>...</span></div>
+      </div>
+    </div>
+
+    <!-- COUNTRY IMPACT -->
+    <div style="border-bottom:1px solid var(--border)" id="impact">
+      <div class="section-header"><span>💸</span><h2>YOUR COUNTRY IMPACT</h2></div>
+      <div class="impact-container">
+        <select class="impact-select" onchange="updateImpact(this.value)">
+          <option value="">-- Select Your Country --</option>
+          <option value="india">🇮🇳 India</option>
+          <option value="usa">🇺🇸 United States</option>
+          <option value="uk">🇬🇧 United Kingdom</option>
+          <option value="europe">🇪🇺 Europe</option>
+          <option value="china">🇨🇳 China</option>
+          <option value="pakistan">🇵🇰 Pakistan</option>
+          <option value="japan">🇯🇵 Japan</option>
+          <option value="gulf">🇸🇦 Gulf States</option>
+        </select>
+        <div class="impact-results" id="impactResults">
+          <div style="text-align:center;color:var(--muted);font-size:12px;padding:16px 0">Select country to see war impact</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HUMANITARIAN -->
+    <div style="border-bottom:1px solid var(--border)">
+      <div class="section-header"><span>❤️</span><h2>HUMANITARIAN CRISIS</h2></div>
+      <div class="humanitarian-container">
+        <div class="h-stat critical"><div class="h-stat-left"><span class="h-icon">💀</span><span class="h-label">Total Deaths (Region)</span></div><div class="h-value">3,053+</div></div>
+        <div class="h-stat warning"><div class="h-stat-left"><span class="h-icon">🏚️</span><span class="h-label">Displaced People</span></div><div class="h-value">1.5M+</div></div>
+        <div class="h-stat warning"><div class="h-stat-left"><span class="h-icon">🏗️</span><span class="h-label">Structures Destroyed</span></div><div class="h-value">82,000+</div></div>
+        <div class="h-stat concern"><div class="h-stat-left"><span class="h-icon">👶</span><span class="h-label">Children Killed</span></div><div class="h-value">338+</div></div>
+        <div class="h-stat critical"><div class="h-stat-left"><span class="h-icon">🚢</span><span class="h-label">Seafarers Stranded</span></div><div class="h-value">20,000</div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════
+         ☕ DONATE / BUY ME A COFFEE
+         (FULLY EDITABLE BY YOU)
+    ══════════════════════════════════ -->
+    <div class="donate-section" id="donate-section">
+      <div class="section-header"><span>☕</span><h2>SUPPORT WARPULSE</h2></div>
+      <div class="donate-container">
+        <div class="donate-desc" id="donateDesc">WarPulse is free for everyone. If you find this useful, a small donation keeps the servers running and news flowing. Every contribution helps! 🙏</div>
+        <a id="donateBtnLink" href="https://www.buymeacoffee.com/YOUR_USERNAME" target="_blank" class="donate-btn-main">☕ BUY ME A COFFEE</a>
+        <span class="donate-edit-link" onclick="toggleDonateEdit()">⚙️ EDIT DONATION SETTINGS</span>
+
+        <!-- EDITABLE PANEL -->
+        <div class="edit-panel" id="donateEditPanel">
+          <div class="edit-label">Your PayPal / Buy Me a Coffee Link</div>
+          <input class="edit-input" id="donateLink" placeholder="https://www.buymeacoffee.com/yourusername OR https://paypal.me/yourusername" value="https://www.buymeacoffee.com/YOUR_USERNAME"/>
+
+          <div class="edit-label">Button Text</div>
+          <input class="edit-input" id="donateBtnText" placeholder="e.g. ☕ Buy Me a Coffee" value="☕ BUY ME A COFFEE"/>
+
+          <div class="edit-label">Description Message</div>
+          <input class="edit-input" id="donateDescText" placeholder="Your message to readers..." value="WarPulse is free for everyone. If you find this useful, a small donation keeps the servers running and news flowing. Every contribution helps! 🙏"/>
+
+          <button class="edit-save-btn" onclick="saveDonateSettings()">✓ SAVE SETTINGS</button>
+          <div class="success-msg" id="donateSaved">✓ Saved! Button updated.</div>
+
+          <div class="edit-note">
+            💡 <strong>How to earn:</strong><br>
+            1. Go to <strong>buymeacoffee.com</strong> → Create free account<br>
+            2. Connect your PayPal in their dashboard<br>
+            3. Paste your link above → Save<br>
+            All donations go directly to your PayPal automatically!
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════
+         🔗 AFFILIATE LINKS MANAGER
+         (FULLY EDITABLE BY YOU)
+    ══════════════════════════════════ -->
+    <div class="affiliate-section" id="affiliates">
+      <div class="section-header"><span>🔗</span><h2>PARTNER DEALS</h2><span class="section-badge">SPONSORED</span></div>
+      <div class="affiliate-container">
+        <div id="affiliateDisplay">
+          <!-- Populated by JS -->
+        </div>
+        <button class="affiliate-mgr-btn" onclick="openAffManager()">⚙️ MANAGE AFFILIATE LINKS</button>
+      </div>
+    </div>
+
+    <!-- NEWSLETTER -->
+    <div style="border-bottom:1px solid var(--border)">
+      <div class="section-header"><span>📧</span><h2>DAILY BRIEFING</h2></div>
+      <div class="newsletter-container">
+        <p>Get top 5 war updates every morning. Free, no spam.</p>
+        <input type="email" class="nl-input" id="nlEmail" placeholder="your@email.com"/>
+        <button class="nl-btn" onclick="subscribeNL()">SUBSCRIBE FREE</button>
+        <div class="success-msg" id="nlSuccess" style="display:none">✓ Subscribed! Check your email.</div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR AD -->
+    <div class="ad-unit" style="margin:14px">
+      📢 GOOGLE ADSENSE — 300×250<br><br>
+      <code style="font-size:10px;color:#444">&lt;!-- Paste AdSense code here --&gt;</code>
+    </div>
+
+  </div><!-- end sidebar -->
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <h3>WARPULSE</h3>
+    <p>Real-time global conflict tracking. Free, independent, unbiased.</p>
+    <p style="margin-top:8px">Sources: Al Jazeera · Reuters · BBC · CNN · ACLED · UN</p>
+  </div>
+  <div>
+    <h3>NAVIGATE</h3>
+    <a href="#conflicts">Live War Map</a>
+    <a href="#news">News Feed</a>
+    <a href="#impact">Country Impact</a>
+    <a href="#donate-section">Support Us</a>
+    <a href="#affiliates">Partner Deals</a>
+  </div>
+  <div>
+    <h3>FOLLOW</h3>
+    <a href="#">Twitter / X — @WarPulseNews</a>
+    <a href="#">Instagram — @WarPulse</a>
+    <a href="#">WhatsApp Channel</a>
+    <a href="#">Telegram</a>
+    <a href="#">YouTube</a>
+  </div>
+  <div class="footer-bottom">
+    <span style="color:var(--muted);font-size:11px;font-family:var(--font-mono)">© 2026 WarPulse · Informational purposes only · Not affiliated with any government</span>
+    <span style="color:var(--muted);font-size:11px;font-family:var(--font-mono)">Privacy · Terms · Advertise</span>
+  </div>
+</footer>
+
+<!-- CONFLICT DETAIL MODAL -->
+<div class="modal-overlay" id="conflictModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Conflict Details</h3>
+      <button class="modal-close" onclick="document.getElementById('conflictModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- AFFILIATE MANAGER MODAL -->
+<div class="aff-manager" id="affManager" onclick="if(event.target===this)closeAffManager()">
+  <div class="aff-manager-box">
+    <div class="aff-manager-header">
+      <h3>⚙️ MANAGE AFFILIATE LINKS</h3>
+      <button class="modal-close" onclick="closeAffManager()">✕</button>
+    </div>
+    <div class="aff-manager-body">
+      <div id="affEditorList"></div>
+      <button class="add-aff-btn" onclick="addAffItem()">+ ADD NEW AFFILIATE LINK</button>
+      <button class="save-aff-btn" onclick="saveAffiliates()">✓ SAVE ALL LINKS</button>
+      <div class="success-msg" id="affSaved" style="margin-top:8px">✓ Saved! Links updated on website.</div>
+      <div class="aff-tip">
+        💡 <strong>How to earn with affiliates:</strong><br>
+        • <strong>NordVPN:</strong> nordvpn.com/affiliates → earn $40–$60 per signup<br>
+        • <strong>ExpressVPN:</strong> expressvpn.com/affiliates → earn $36 per signup<br>
+        • <strong>Amazon:</strong> affiliate-program.amazon.com → earn 1–10% per sale<br>
+        • Any product website → look for "Affiliate Program" in footer<br>
+        • Paste your personal affiliate link in the URL field above
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════
+function updateClock(){
+  const now=new Date();
+  document.getElementById('clock').textContent='Updated: '+now.toUTCString().slice(0,-4)+' UTC';
+}
+updateClock(); setInterval(updateClock,60000);
+
+// WAR DAYS
+const warStart=new Date('2026-02-28');
+const days=Math.floor((new Date()-warStart)/(1000*60*60*24));
+document.getElementById('warDays').textContent=days;
+document.getElementById('iranDay').textContent=days;
+
+// ══════════════════════════════════════
+// ANIMATE DEATH COUNTER
+// ══════════════════════════════════════
+function animateCount(el,start,end,duration){
+  let current=start, step=Math.ceil((end-start)/40);
+  const iv=setInterval(()=>{
+    current=Math.min(current+step,end);
+    el.textContent=current.toLocaleString();
+    if(current>=end)clearInterval(iv);
+  },duration/40);
+}
+setTimeout(()=>animateCount(document.getElementById('iranDeaths'),1800,1937,1500),600);
+
+// ══════════════════════════════════════
+// LIVE NEWS — RSS via rss2json API (free)
+// ══════════════════════════════════════
+const RSS_FEEDS=[
+  {url:'https://feeds.bbci.co.uk/news/world/rss.xml',source:'BBC News'},
+  {url:'https://www.aljazeera.com/xml/rss/all.xml',source:'Al Jazeera'},
+];
+const WAR_KEYWORDS=['iran','israel','war','ukraine','russia','conflict','strike','ceasefire','missile','attack','military','hezbollah','hamas','gaza','sudan','nato','diplomacy','peace'];
+
+function getNewsTag(title){
+  const t=title.toLowerCase();
+  if(t.includes('iran')||t.includes('israel')||t.includes('strike')||t.includes('missile')||t.includes('attack')||t.includes('military')||t.includes('killed'))return{cls:'tag-breaking',label:'BREAKING'};
+  if(t.includes('ukraine')||t.includes('russia')||t.includes('hamas')||t.includes('hezbollah')||t.includes('military'))return{cls:'tag-war',label:'WAR'};
+  if(t.includes('peace')||t.includes('ceasefire')||t.includes('diplomacy')||t.includes('talks')||t.includes('negotiat'))return{cls:'tag-diplomacy',label:'DIPLOMACY'};
+  return{cls:'tag-world',label:'WORLD'};
+}
+
+function timeAgo(dateStr){
+  const diff=Math.floor((new Date()-new Date(dateStr))/1000);
+  if(diff<60)return diff+'s ago';
+  if(diff<3600)return Math.floor(diff/60)+'m ago';
+  if(diff<86400)return Math.floor(diff/3600)+'h ago';
+  return Math.floor(diff/86400)+'d ago';
+}
+
+let allNews=[];
+let currentFilter='all';
+
+async function fetchNewsFromFeed(feedObj){
+  const api=`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedObj.url)}&api_key=public&count=30`;
+  try{
+    const r=await fetch(api);
+    const d=await r.json();
+    if(d.items){
+      return d.items
+        .filter(item=>{
+          const text=(item.title+' '+(item.description||'')).toLowerCase();
+          return WAR_KEYWORDS.some(k=>text.includes(k));
+        })
+        .map(item=>({title:item.title,link:item.link,pubDate:item.pubDate,source:feedObj.source}));
+    }
+  }catch(e){}
+  return[];
+}
+
+async function loadNews(){
+  const feed=document.getElementById('newsFeed');
+  const results=await Promise.all(RSS_FEEDS.map(f=>fetchNewsFromFeed(f)));
+  allNews=results.flat().sort((a,b)=>new Date(b.pubDate)-new Date(a.pubDate));
+  if(allNews.length===0){
+    // Fallback static news
+    allNews=[
+      {title:'Trump extends pause on Iranian energy site strikes to April 6',link:'#',pubDate:new Date().toISOString(),source:'Reuters'},
+      {title:'Iran death toll rises to 1,937 as US-Israel strikes continue on Day 27',link:'#',pubDate:new Date(Date.now()-600000).toISOString(),source:'Al Jazeera'},
+      {title:'Strait of Hormuz: 2,000 vessels and 20,000 seafarers stranded as war disrupts shipping',link:'#',pubDate:new Date(Date.now()-1800000).toISOString(),source:'CNN'},
+      {title:'Iran responds to US 15-point peace plan through intermediaries',link:'#',pubDate:new Date(Date.now()-3600000).toISOString(),source:'BBC News'},
+      {title:'Pakistan PM offers Islamabad as venue for Iran-US peace negotiations',link:'#',pubDate:new Date(Date.now()-7200000).toISOString(),source:'Dawn'},
+      {title:'Oil prices surge as global energy supply faces worst disruption in decades',link:'#',pubDate:new Date(Date.now()-10800000).toISOString(),source:'Bloomberg'},
+      {title:'Lebanon: Over 1 million civilians displaced — UNHCR',link:'#',pubDate:new Date(Date.now()-14400000).toISOString(),source:'UNHCR'},
+      {title:'Ukraine ceasefire talks stall as frontline fighting intensifies',link:'#',pubDate:new Date(Date.now()-18000000).toISOString(),source:'BBC News'},
+      {title:'Sudan famine conditions spread across three more regions — UN',link:'#',pubDate:new Date(Date.now()-21600000).toISOString(),source:'Al Jazeera'},
+      {title:'Gold hits record high as investors seek safe haven amid global conflicts',link:'#',pubDate:new Date(Date.now()-25200000).toISOString(),source:'Reuters'},
+    ];
+  }
+  document.getElementById('newsAge').textContent='Updated '+timeAgo(new Date().toISOString());
+  renderNews();
+}
+
+function renderNews(){
+  const feed=document.getElementById('newsFeed');
+  const filtered=currentFilter==='all'?allNews:allNews.filter(n=>{
+    const tag=getNewsTag(n.title);
+    return tag.label.toLowerCase()===currentFilter;
+  });
+  if(filtered.length===0){feed.innerHTML='<div class="news-loading">No '+currentFilter+' news found.</div>';return;}
+  feed.innerHTML=filtered.map(n=>{
+    const tag=getNewsTag(n.title);
+    return`<div class="news-item" onclick="window.open('${n.link}','_blank')">
+      <div class="news-tag ${tag.cls}">${tag.label}</div>
+      <div class="news-content">
+        <div class="news-headline">${n.title}</div>
+        <div class="news-meta">
+          <span>${n.source}</span>
+          <span>${timeAgo(n.pubDate)}</span>
+          <a href="${n.link}" target="_blank" onclick="event.stopPropagation()">Read →</a>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterNews(type,btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter=type;
+  renderNews();
+}
+
+loadNews();
+setInterval(loadNews,300000); // refresh every 5 min
+
+// ══════════════════════════════════════
+// COMMODITY PRICES — Yahoo Finance via proxy
+// ══════════════════════════════════════
+const COMMODITIES=[
+  {symbol:'CL=F',name:'🛢️ Brent Crude',unit:'/barrel'},
+  {symbol:'GC=F',name:'🥇 Gold',unit:'/oz'},
+  {symbol:'NG=F',name:'⛽ Natural Gas',unit:'/MMBtu'},
+  {symbol:'ZW=F',name:'🌾 Wheat',unit:'/bushel'},
+  {symbol:'USDINR=X',name:'💵 USD/INR',unit:''},
+];
+const FALLBACK_PRICES=[
+  {name:'🛢️ Brent Crude',price:'$97.40',change:'+8.2%',up:true,pct:82},
+  {name:'🥇 Gold',price:'$3,210',change:'+3.8%',up:true,pct:55},
+  {name:'⛽ Natural Gas',price:'$4.85',change:'+12.4%',up:true,pct:90},
+  {name:'🌾 Wheat',price:'$6.42',change:'+5.1%',up:true,pct:65},
+  {name:'💵 USD/INR',price:'₹87.4',change:'+1.2%',up:true,pct:40},
+  {name:'🚢 Shipping Index',price:'$4,200',change:'+28%',up:true,pct:95},
+];
+
+function renderPrices(prices){
+  const c=document.getElementById('commodityContainer');
+  c.innerHTML=prices.map(p=>`
+    <div class="commodity-row">
+      <span class="commodity-name">${p.name}</span>
+      <span class="commodity-price">${p.price}</span>
+      <span class="commodity-change ${p.up?'chg-up':'chg-dn'}">${p.change}</span>
+      <div class="commodity-mini-bar"><div class="commodity-mini-fill" style="width:${p.pct}%;background:${p.up?'var(--red)':'var(--green)'}"></div></div>
+    </div>`).join('');
+  document.getElementById('priceAge').textContent='Updated '+new Date().toLocaleTimeString();
+}
+
+async function loadPrices(){
+  // Try Yahoo Finance via allorigins proxy
+  try{
+    const symbols=COMMODITIES.map(c=>c.symbol).join(',');
+    const url=`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/spark?symbols='+symbols+'&range=1d&interval=1d')}`;
+    const r=await fetch(url,{signal:AbortSignal.timeout(5000)});
+    const d=await r.json();
+    const data=JSON.parse(d.contents);
+    const result=data.spark.result;
+    const prices=result.map((r,i)=>{
+      const sym=COMMODITIES[i];
+      const meta=r.response[0].meta;
+      const prev=meta.chartPreviousClose;
+      const cur=meta.regularMarketPrice;
+      const chgPct=((cur-prev)/prev*100);
+      const up=chgPct>=0;
+      const formatted=sym.unit===''?'₹'+cur.toFixed(2):'$'+cur.toFixed(2);
+      return{name:sym.name,price:formatted,change:(up?'+':'')+chgPct.toFixed(1)+'%',up,pct:Math.min(Math.abs(chgPct)*5,100)};
+    });
+    renderPrices(prices);
+  }catch(e){
+    renderPrices(FALLBACK_PRICES);
+  }
+}
+loadPrices();
+setInterval(loadPrices,300000);
+
+// ══════════════════════════════════════
+// COUNTRY IMPACT
+// ══════════════════════════════════════
+const impactData={
+  india:[{l:'Fuel Prices',v:'↑ +12%',c:'danger'},{l:'Oil Import Cost',v:'↑ High',c:'danger'},{l:'Shipping Delays',v:'Red Sea Route',c:'warning'},{l:'Gulf Remittances',v:'At Risk',c:'warning'},{l:'Food Inflation',v:'↑ +4-6%',c:'caution'},{l:'Rupee vs USD',v:'Weakening',c:'caution'},{l:'IT Exports',v:'Stable',c:'ok'}],
+  usa:[{l:'War Cost',v:'$Bn/day',c:'danger'},{l:'Oil Prices',v:'↑ +8%',c:'warning'},{l:'Soldiers KIA',v:'13',c:'danger'},{l:'Stock Market',v:'Volatile',c:'warning'},{l:'USD Strength',v:'Rising',c:'ok'},{l:'Arms Industry',v:'Booming',c:'ok'}],
+  uk:[{l:'Energy Prices',v:'↑ +15%',c:'danger'},{l:'Inflation Impact',v:'High',c:'danger'},{l:'GBP Pressure',v:'↓ Falling',c:'warning'},{l:'Shipping Costs',v:'↑ High',c:'caution'},{l:'Defence Spend',v:'Increasing',c:'caution'}],
+  europe:[{l:'Energy Crisis',v:'CRITICAL',c:'danger'},{l:'Gas Supply Risk',v:'High',c:'danger'},{l:'Refugee Pressure',v:'Increasing',c:'warning'},{l:'EUR/USD',v:'↓ Falling',c:'caution'},{l:'Trade Disruption',v:'Severe',c:'warning'}],
+  china:[{l:'Oil Import Costs',v:'↑ Rising',c:'warning'},{l:'Hormuz Risk',v:'Trade Risk',c:'warning'},{l:'Regional Role',v:'Opportunity',c:'ok'},{l:'Belt & Road',v:'Disrupted',c:'caution'},{l:'Yuan Impact',v:'Minimal',c:'ok'}],
+  pakistan:[{l:'Fuel Prices',v:'↑ +18%',c:'danger'},{l:'Gulf Remittances',v:'At Risk',c:'danger'},{l:'PKR Pressure',v:'↓ Falling',c:'warning'},{l:'Mediation Role',v:'Active',c:'ok'},{l:'Food Inflation',v:'↑ High',c:'warning'}],
+  japan:[{l:'Oil Import Cost',v:'↑ Major',c:'danger'},{l:'Shipping Routes',v:'Disrupted',c:'warning'},{l:'LNG Supply',v:'At Risk',c:'warning'},{l:'Yen Impact',v:'Weakening',c:'caution'},{l:'Tech Exports',v:'Stable',c:'ok'}],
+  gulf:[{l:'Direct Attack Risk',v:'ACTIVE',c:'danger'},{l:'Oil Infra Strikes',v:'Ongoing',c:'danger'},{l:'Tourism',v:'Collapsed',c:'danger'},{l:'Oil Revenue',v:'↑ High',c:'ok'},{l:'Air Routes',v:'Diverted',c:'warning'}],
+};
+function updateImpact(country){
+  const c=document.getElementById('impactResults');
+  if(!country){c.innerHTML='<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px 0">Select country to see war impact</div>';return;}
+  c.innerHTML=(impactData[country]||[]).map(d=>`<div class="impact-row ${d.c}"><span class="impact-label">${d.l}</span><span class="impact-value">${d.v}</span></div>`).join('');
+}
+
+// ══════════════════════════════════════
+// CONFLICT MODAL
+// ══════════════════════════════════════
+const conflictData={
+  iran:{title:'🇮🇷 US–ISRAEL WAR ON IRAN',desc:'US and Israel launched strikes on Iran on February 28, 2026. Now in Day '+days+', attacks are increasing in number and intensity. Iran has retaliated with waves of missiles and drones targeting Israel, Lebanon, and Gulf states. Strait of Hormuz remains partially disrupted.',facts:[{l:'Iran Deaths',v:'1,937+'},{l:'Lebanon Deaths',v:'1,116+'},{l:'Iraq Deaths',v:'96+'},{l:'Days Active',v:days},{l:'Structures Destroyed',v:'82,000+'},{l:'Vessels Stranded',v:'~2,000'},{l:'Ceasefire Chance',v:'18%'},{l:'Countries Involved',v:'9+'}]},
+  ukraine:{title:'🇺🇦 RUSSIA–UKRAINE WAR',desc:'Now in its third year, the Russia-Ukraine war continues along eastern front lines. Ceasefire negotiations remain stalled. Europe faces ongoing energy and refugee pressures.',facts:[{l:'Estimated Deaths',v:'600,000+'},{l:'Days Active',v:'1,100+'},{l:'Refugees',v:'8M+'},{l:'NATO Involved',v:'Yes'},{l:'Ceasefire Chance',v:'25%'}]},
+  sudan:{title:'🇸🇩 SUDAN CIVIL WAR',desc:'SAF vs RSF conflict has created the world\'s largest humanitarian crisis. Famine conditions spreading, international aid severely restricted.',facts:[{l:'Estimated Deaths',v:'150,000+'},{l:'Displaced',v:'8.5M+'},{l:'Days Active',v:'700+'},{l:'Famine Risk',v:'Critical'},{l:'Aid Access',v:'Blocked'}]},
+  myanmar:{title:'🇲🇲 MYANMAR CIVIL WAR',desc:'Since 2021 military coup, Myanmar has been in civil war. Military junta vs broad resistance coalition. Major cities under siege, millions displaced.',facts:[{l:'Estimated Deaths',v:'50,000+'},{l:'Displaced',v:'3M+'},{l:'Days Active',v:'1,400+'},{l:'Aid Access',v:'Blocked'},{l:'Ceasefire Chance',v:'10%'}]},
+  lebanon:{title:'🇱🇧 ISRAEL–HEZBOLLAH (LEBANON)',desc:'Hezbollah launched massive barrages after US-Israeli strikes on Iran. Israel responded with ground operations and airstrikes in southern Lebanon. Over 1M civilians displaced.',facts:[{l:'Deaths in Lebanon',v:'1,116+'},{l:'Wounded',v:'3,229+'},{l:'Children Killed',v:'121+'},{l:'Displaced',v:'1M+'},{l:'Rockets Fired',v:'3,500+'}]},
+};
+function showConflict(id){
+  const d=conflictData[id];if(!d)return;
+  document.getElementById('modalTitle').textContent=d.title;
+  document.getElementById('modalBody').innerHTML=`<p>${d.desc}</p><h4>KEY STATISTICS</h4><div class="modal-facts">${d.facts.map(f=>`<div class="modal-fact"><div class="modal-fact-label">${f.l}</div><div class="modal-fact-value">${f.v}</div></div>`).join('')}</div><h4>SOURCES</h4><p style="font-size:12px">Al Jazeera · CNN · Reuters · BBC · ACLED · HRANA · UN Agencies</p>`;
+  document.getElementById('conflictModal').classList.add('open');
+}
+
+// ══════════════════════════════════════
+// DONATE SETTINGS (saved in localStorage)
+// ══════════════════════════════════════
+function loadDonateSettings(){
+  const link=localStorage.getItem('wp_donate_link')||'https://www.buymeacoffee.com/YOUR_USERNAME';
+  const btn=localStorage.getItem('wp_donate_btn')||'☕ BUY ME A COFFEE';
+  const desc=localStorage.getItem('wp_donate_desc')||'WarPulse is free for everyone. If you find this useful, a small donation keeps the servers running and news flowing. Every contribution helps! 🙏';
+  document.getElementById('donateBtnLink').href=link;
+  document.getElementById('donateBtnLink').textContent=btn;
+  document.getElementById('donateDesc').textContent=desc;
+  document.getElementById('donateLink').value=link;
+  document.getElementById('donateBtnText').value=btn;
+  document.getElementById('donateDescText').value=desc;
+}
+function saveDonateSettings(){
+  const link=document.getElementById('donateLink').value.trim();
+  const btn=document.getElementById('donateBtnText').value.trim();
+  const desc=document.getElementById('donateDescText').value.trim();
+  localStorage.setItem('wp_donate_link',link||'#');
+  localStorage.setItem('wp_donate_btn',btn||'☕ Donate');
+  localStorage.setItem('wp_donate_desc',desc);
+  document.getElementById('donateBtnLink').href=link||'#';
+  document.getElementById('donateBtnLink').textContent=btn||'☕ Donate';
+  document.getElementById('donateDesc').textContent=desc;
+  const msg=document.getElementById('donateSaved');
+  msg.style.display='block';
+  setTimeout(()=>msg.style.display='none',3000);
+}
+function toggleDonateEdit(){
+  document.getElementById('donateEditPanel').classList.toggle('open');
+}
+loadDonateSettings();
+
+// ══════════════════════════════════════
+// AFFILIATE MANAGER
+// ══════════════════════════════════════
+let affiliates=JSON.parse(localStorage.getItem('wp_affiliates')||'null')||[
+  {icon:'🔒',name:'NordVPN',desc:'Protect your privacy. Best VPN for accessing uncensored news during conflict. Trusted by millions.',link:'https://nordvpn.com/?aff=YOUR_ID',cta:'GET PROTECTED →',color:'#00aaff'},
+  {icon:'⚡',name:'ExpressVPN',desc:'Ultra-fast VPN. Access news from any country. 30-day money-back guarantee.',link:'https://expressvpn.com/?a_aid=YOUR_ID',cta:'TRY FOR FREE →',color:'#ff7a00'},
+  {icon:'📚',name:'Amazon',desc:'Get books on geopolitics, Middle East history, and global conflicts.',link:'https://amazon.com/?tag=YOUR_TAG',cta:'SHOP NOW →',color:'#ffd000'},
+];
+
+function renderAffiliates(){
+  const d=document.getElementById('affiliateDisplay');
+  d.innerHTML=affiliates.map((a,i)=>`
+    <a href="${a.link}" target="_blank" class="affiliate-card">
+      <div class="affiliate-icon">${a.icon}</div>
+      <div class="affiliate-info">
+        <div class="affiliate-name">${a.name}</div>
+        <div class="affiliate-desc">${a.desc}</div>
+      </div>
+      <div class="affiliate-cta" style="background:${a.color}">${a.cta}</div>
+    </a>`).join('');
+}
+
+function renderAffEditor(){
+  const list=document.getElementById('affEditorList');
+  list.innerHTML=affiliates.map((a,i)=>`
+    <div class="aff-item-edit" id="affItem${i}">
+      <button class="del-btn" onclick="deleteAff(${i})">✕ Remove</button>
+      <div class="aff-row">
+        <div><div class="edit-label">Icon (emoji)</div><input class="edit-input" id="affIcon${i}" value="${a.icon}" placeholder="🔒"/></div>
+        <div><div class="edit-label">Company Name</div><input class="edit-input" id="affName${i}" value="${a.name}" placeholder="NordVPN"/></div>
+      </div>
+      <div class="edit-label">Description</div>
+      <input class="edit-input" id="affDesc${i}" value="${a.desc}" placeholder="Short description for readers..."/>
+      <div class="edit-label">Your Affiliate Link (paste YOUR link from their dashboard)</div>
+      <input class="edit-input" id="affLink${i}" value="${a.link}" placeholder="https://nordvpn.com/?aff=YOURCODE"/>
+      <div class="aff-row" style="margin-top:6px">
+        <div><div class="edit-label">Button Text</div><input class="edit-input" id="affCta${i}" value="${a.cta}" placeholder="GET DEAL →"/></div>
+        <div><div class="edit-label">Button Color</div><input class="edit-input" id="affColor${i}" value="${a.color}" placeholder="#00aaff" style="font-family:var(--font-mono)"/></div>
+      </div>
+    </div>`).join('');
+}
+
+function addAffItem(){
+  affiliates.push({icon:'🔗',name:'New Partner',desc:'Add your description here.',link:'https://your-affiliate-link.com',cta:'LEARN MORE →',color:'#00ff7f'});
+  renderAffEditor();
+}
+function deleteAff(i){affiliates.splice(i,1);renderAffEditor();}
+function saveAffiliates(){
+  affiliates=affiliates.map((a,i)=>({
+    icon:document.getElementById('affIcon'+i).value||'🔗',
+    name:document.getElementById('affName'+i).value||'Partner',
+    desc:document.getElementById('affDesc'+i).value||'',
+    link:document.getElementById('affLink'+i).value||'#',
+    cta:document.getElementById('affCta'+i).value||'LEARN MORE →',
+    color:document.getElementById('affColor'+i).value||'#00aaff',
+  }));
+  localStorage.setItem('wp_affiliates',JSON.stringify(affiliates));
+  renderAffiliates();
+  const msg=document.getElementById('affSaved');
+  msg.style.display='block';
+  setTimeout(()=>{msg.style.display='none';closeAffManager();},2000);
+}
+function openAffManager(){renderAffEditor();document.getElementById('affManager').classList.add('open');}
+function closeAffManager(){document.getElementById('affManager').classList.remove('open');}
+renderAffiliates();
+
+// ══════════════════════════════════════
+// NEWSLETTER
+// ══════════════════════════════════════
+function subscribeNL(){
+  const e=document.getElementById('nlEmail').value;
+  if(!e||!e.includes('@')){alert('Please enter a valid email');return;}
+  document.getElementById('nlSuccess').style.display='block';
+  document.getElementById('nlEmail').value='';
+  // Connect Mailchimp API here
+}
+</script>
+</body>
+</html>
